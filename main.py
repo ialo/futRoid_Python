@@ -1,6 +1,9 @@
 import pygame
 import math
 import random
+import class_player
+import class_ball
+import class_adversary
 
 pygame.init()
 
@@ -12,31 +15,35 @@ DEFAULT_IMAGE_SIZE_100 = (100, 100)
 
 DEFAULT_IMAGE_SIZE_150 = (150, 150)
 
+global escudo_player, sw, sh, objPlayer, adversario_50, adversario_100, adversario_150
+
 sw = 768
 sh = 1024
 
-bg = pygame.image.load('images/_campo.png')
-bg = pygame.transform.scale(bg, (sw, sh))
-alienImg = pygame.image.load('images/fifa.png')
-alienImg = pygame.transform.scale(alienImg, DEFAULT_IMAGE_SIZE_150)
-playerRocket = pygame.image.load('images/gremio-256.png')
-playerRocket = pygame.transform.scale(playerRocket, DEFAULT_IMAGE_SIZE)
-star = pygame.image.load('images/_bola_dourada.png')
-asteroid50 = pygame.image.load('images/corinthians-256.png')
-asteroid50 = pygame.transform.scale(asteroid50, DEFAULT_IMAGE_SIZE_50)
-asteroid100 = pygame.image.load('images/flamengo-256.png')
-asteroid100 = pygame.transform.scale(asteroid100, DEFAULT_IMAGE_SIZE_100)
-asteroid150 = pygame.image.load('images/internacional-256.png')
-asteroid150 = pygame.transform.scale(asteroid150, DEFAULT_IMAGE_SIZE_150)
+background = pygame.image.load('images/_campo.png')
+background = pygame.transform.scale(background, (sw, sh))
+ball = pygame.image.load('images/_bola.png')
+ball = pygame.transform.scale(ball, (5, 5))
+enemy = pygame.image.load('images/fifa.png')
+enemy = pygame.transform.scale(enemy, DEFAULT_IMAGE_SIZE_150)
+escudo_player = pygame.image.load('images/gremio-256.png')
+escudo_player = pygame.transform.scale(escudo_player, DEFAULT_IMAGE_SIZE)
+bonus = pygame.image.load('images/_bola_dourada.png')
+adversario_50 = pygame.image.load('images/corinthians-256.png')
+adversario_50 = pygame.transform.scale(adversario_50, DEFAULT_IMAGE_SIZE_50)
+adversario_100 = pygame.image.load('images/flamengo-256.png')
+adversario_100 = pygame.transform.scale(adversario_100, DEFAULT_IMAGE_SIZE_100)
+adversario_150 = pygame.image.load('images/internacional-256.png')
+adversario_150 = pygame.transform.scale(adversario_150, DEFAULT_IMAGE_SIZE_150)
 
-shoot = pygame.mixer.Sound('audio/chute.mp3')
-bangLargeSound = pygame.mixer.Sound('audio/bolaAtinge.mp3')
-bangSmallSound = pygame.mixer.Sound('audio/bolaAtinge.mp3')
+shoot = pygame.mixer.Sound('audio/kick.mp3')
+SoundHitL = pygame.mixer.Sound('audio/ballHit.mp3')
+SoundHitS = pygame.mixer.Sound('audio/ballHit.mp3')
 shoot.set_volume(.25)
-bangLargeSound.set_volume(.25)
-bangSmallSound.set_volume(.25)
+SoundHitL.set_volume(.25)
+SoundHitS.set_volume(.25)
 
-pygame.display.set_caption('Asteroids')
+pygame.display.set_caption('futRoid')
 win = pygame.display.set_mode((sw, sh))
 clock = pygame.time.Clock()
 
@@ -49,119 +56,9 @@ isSoundOn = True
 highScore = 0
 
 
-class Player(object):
-    def __init__(self):
-        self.img = playerRocket
-        self.w = self.img.get_width()
-        self.h = self.img.get_height()
-        self.x = sw // 2
-        self.y = sh // 2
-        self.angle = 0
-        self.rotatedSurf = pygame.transform.rotate(self.img, self.angle)
-        self.rotatedRect = self.rotatedSurf.get_rect()
-        self.rotatedRect.center = (self.x, self.y)
-        self.cosine = math.cos(math.radians(self.angle + 90))
-        self.sine = math.sin(math.radians(self.angle + 90))
-        self.head = (self.x + self.cosine * self.w // 2, self.y - self.sine * self.h // 2)
-
-    def draw(self, win):
-        # win.blit(self.img, [self.x, self.y, self.w, self.h])
-        win.blit(self.rotatedSurf, self.rotatedRect)
-
-    def turnLeft(self):
-        self.angle += 5
-        self.rotatedSurf = pygame.transform.rotate(self.img, self.angle)
-        self.rotatedRect = self.rotatedSurf.get_rect()
-        self.rotatedRect.center = (self.x, self.y)
-        self.cosine = math.cos(math.radians(self.angle + 90))
-        self.sine = math.sin(math.radians(self.angle + 90))
-        self.head = (self.x + self.cosine * self.w // 2, self.y - self.sine * self.h // 2)
-
-    def turnRight(self):
-        self.angle -= 5
-        self.rotatedSurf = pygame.transform.rotate(self.img, self.angle)
-        self.rotatedRect = self.rotatedSurf.get_rect()
-        self.rotatedRect.center = (self.x, self.y)
-        self.cosine = math.cos(math.radians(self.angle + 90))
-        self.sine = math.sin(math.radians(self.angle + 90))
-        self.head = (self.x + self.cosine * self.w // 2, self.y - self.sine * self.h // 2)
-
-    def moveForward(self):
-        self.x += self.cosine * 6
-        self.y -= self.sine * 6
-        self.rotatedSurf = pygame.transform.rotate(self.img, self.angle)
-        self.rotatedRect = self.rotatedSurf.get_rect()
-        self.rotatedRect.center = (self.x, self.y)
-        self.cosine = math.cos(math.radians(self.angle + 90))
-        self.sine = math.sin(math.radians(self.angle + 90))
-        self.head = (self.x + self.cosine * self.w // 2, self.y - self.sine * self.h // 2)
-
-    def updateLocation(self):
-        if self.x > sw + 50:
-            self.x = 0
-        elif self.x < 0 - self.w:
-            self.x = sw
-        elif self.y < -50:
-            self.y = sh
-        elif self.y > sh + 50:
-            self.y = 0
-
-
-class Bullet(object):
-    def __init__(self):
-        self.point = player.head
-        self.x, self.y = self.point
-        self.w = 4
-        self.h = 4
-        self.c = player.cosine
-        self.s = player.sine
-        self.xv = self.c * 10
-        self.yv = self.s * 10
-
-    def move(self):
-        self.x += self.xv
-        self.y -= self.yv
-
-    def draw(self, win):
-        pygame.draw.rect(win, (255, 255, 255), [self.x, self.y, self.w, self.h])
-
-    def checkOffScreen(self):
-        if self.x < -50 or self.x > sw or self.y > sh or self.y < -50:
-            return True
-
-
-class Asteroid(object):
-    def __init__(self, rank):
-        self.rank = rank
-        if self.rank == 1:
-            self.image = asteroid50
-        elif self.rank == 2:
-            self.image = asteroid100
-        else:
-            self.image = asteroid150
-        self.w = 50 * rank
-        self.h = 50 * rank
-        self.ranPoint = random.choice([(random.randrange(0, sw - self.w), random.choice([-1 * self.h - 5, sh + 5])),
-                                       (random.choice([-1 * self.w - 5, sw + 5]), random.randrange(0, sh - self.h))])
-        self.x, self.y = self.ranPoint
-        if self.x < sw // 2:
-            self.xdir = 1
-        else:
-            self.xdir = -1
-        if self.y < sh // 2:
-            self.ydir = 1
-        else:
-            self.ydir = -1
-        self.xv = self.xdir * random.randrange(1, 3)
-        self.yv = self.ydir * random.randrange(1, 3)
-
-    def draw(self, win):
-        win.blit(self.image, (self.x, self.y))
-
-
 class Star(object):
     def __init__(self):
-        self.img = star
+        self.img = bonus
         self.w = self.img.get_width()
         self.h = self.img.get_height()
         self.ranPoint = random.choice([(random.randrange(0, sw - self.w), random.choice([-1 * self.h - 5, sh + 5])),
@@ -184,7 +81,7 @@ class Star(object):
 
 class Alien(object):
     def __init__(self):
-        self.img = alienImg
+        self.img = enemy
         self.w = self.img.get_width()
         self.h = self.img.get_height()
         self.ranPoint = random.choice([(random.randrange(0, sw - self.w), random.choice([-1 * self.h - 5, sh + 5])),
@@ -211,7 +108,7 @@ class AlienBullet(object):
         self.y = y
         self.w = 4
         self.h = 4
-        self.dx, self.dy = player.x - self.x, player.y - self.y
+        self.dx, self.dy = objPlayer.x - self.x, objPlayer.y - self.y
         self.dist = math.hypot(self.dx, self.dy)
         self.dx, self.dy = self.dx / self.dist, self.dy / self.dist
         self.xv = self.dx * 5
@@ -222,14 +119,14 @@ class AlienBullet(object):
 
 
 def redrawGameWindow():
-    win.blit(bg, (0, 0))
+    win.blit(background, (0, 0))
     font = pygame.font.SysFont('arial', 30)
     livesText = font.render('Lives: ' + str(lives), 1, (255, 255, 255))
     playAgainText = font.render('Press Tab to Play Again', 1, (255, 255, 255))
     scoreText = font.render('Score: ' + str(score), 1, (255, 255, 255))
     highScoreText = font.render('High Score: ' + str(highScore), 1, (255, 255, 255))
 
-    player.draw(win)
+    objPlayer.draw(win)
     for a in asteroids:
         a.draw(win)
     for b in playerBullets:
@@ -247,13 +144,14 @@ def redrawGameWindow():
 
     if gameover:
         win.blit(playAgainText, (sw // 2 - playAgainText.get_width() // 2, sh // 2 - playAgainText.get_height() // 2))
+
     win.blit(scoreText, (sw - scoreText.get_width() - 25, 25))
     win.blit(livesText, (25, 25))
     win.blit(highScoreText, (sw - highScoreText.get_width() - 25, 35 + scoreText.get_height()))
     pygame.display.update()
 
 
-player = Player()
+objPlayer = class_player.Player(escudo_player, sw, sh)
 playerBullets = []
 asteroids = []
 count = 0
@@ -261,13 +159,15 @@ stars = []
 aliens = []
 alienBullets = []
 run = True
+
+
 while run:
     clock.tick(60)
     count += 1
     if not gameover:
         if count % 50 == 0:
             ran = random.choice([1, 1, 1, 2, 2, 3])
-            asteroids.append(Asteroid(ran))
+            asteroids.append(class_adversary.Adversary(ran, adversario_50, adversario_100, adversario_150, sw, sh))
         if count % 1000 == 0:
             stars.append(Star())
         if count % 750 == 0:
@@ -285,7 +185,7 @@ while run:
                     if (b.y >= a.y and b.y <= a.y + a.h) or b.y + b.h >= a.y and b.y + b.h <= a.y + a.h:
                         aliens.pop(i)
                         if isSoundOn:
-                            bangLargeSound.play()
+                            SoundHitL.play()
                         score += 50
                         break
 
@@ -293,31 +193,31 @@ while run:
             b.x += b.xv
             b.y += b.yv
             if (
-                    b.x >= player.x - player.w // 2 and b.x <= player.x + player.w // 2) or b.x + b.w >= player.x - player.w // 2 and b.x + b.w <= player.x + player.w // 2:
+                    b.x >= objPlayer.x - objPlayer.w // 2 and b.x <= objPlayer.x + objPlayer.w // 2) or b.x + b.w >= objPlayer.x - objPlayer.w // 2 and b.x + b.w <= objPlayer.x + objPlayer.w // 2:
                 if (
-                        b.y >= player.y - player.h // 2 and b.y <= player.y + player.h // 2) or b.y + b.h >= player.y - player.h // 2 and b.y + b.h <= player.y + player.h // 2:
+                        b.y >= objPlayer.y - objPlayer.h // 2 and b.y <= objPlayer.y + objPlayer.h // 2) or b.y + b.h >= objPlayer.y - objPlayer.h // 2 and b.y + b.h <= objPlayer.y + objPlayer.h // 2:
                     lives -= 1
                     alienBullets.pop(i)
                     break
 
-        player.updateLocation()
+        objPlayer.updateLocation(sw, sh)
         for b in playerBullets:
             b.move()
-            if b.checkOffScreen():
+            if b.checkOffScreen(sw, sh):
                 playerBullets.pop(playerBullets.index(b))
 
         for a in asteroids:
             a.x += a.xv
             a.y += a.yv
 
-            if (a.x >= player.x - player.w // 2 and a.x <= player.x + player.w // 2) or (
-                    a.x + a.w <= player.x + player.w // 2 and a.x + a.w >= player.x - player.w // 2):
-                if (a.y >= player.y - player.h // 2 and a.y <= player.y + player.h // 2) or (
-                        a.y + a.h >= player.y - player.h // 2 and a.y + a.h <= player.y + player.h // 2):
+            if (a.x >= objPlayer.x - objPlayer.w // 2 and a.x <= objPlayer.x + objPlayer.w // 2) or (
+                    a.x + a.w <= objPlayer.x + objPlayer.w // 2 and a.x + a.w >= objPlayer.x - objPlayer.w // 2):
+                if (a.y >= objPlayer.y - objPlayer.h // 2 and a.y <= objPlayer.y + objPlayer.h // 2) or (
+                        a.y + a.h >= objPlayer.y - objPlayer.h // 2 and a.y + a.h <= objPlayer.y + objPlayer.h // 2):
                     lives -= 1
                     asteroids.pop(asteroids.index(a))
                     if isSoundOn:
-                        bangLargeSound.play()
+                        SoundHitL.play()
                     break
 
             # bullet collision
@@ -326,10 +226,10 @@ while run:
                     if (b.y >= a.y and b.y <= a.y + a.h) or b.y + b.h >= a.y and b.y + b.h <= a.y + a.h:
                         if a.rank == 3:
                             if isSoundOn:
-                                bangLargeSound.play()
+                                SoundHitL.play()
                             score += 10
-                            na1 = Asteroid(2)
-                            na2 = Asteroid(2)
+                            na1 = class_adversary.Adversary(2, adversario_50, adversario_100, adversario_150, sw, sh)
+                            na2 = class_adversary.Adversary(2, adversario_50, adversario_100, adversario_150, sw, sh)
                             na1.x = a.x
                             na2.x = a.x
                             na1.y = a.y
@@ -338,10 +238,10 @@ while run:
                             asteroids.append(na2)
                         elif a.rank == 2:
                             if isSoundOn:
-                                bangSmallSound.play()
+                                SoundHitS.play()
                             score += 20
-                            na1 = Asteroid(1)
-                            na2 = Asteroid(1)
+                            na1 = class_adversary.Adversary(1, adversario_50, adversario_100, adversario_150, sw, sh)
+                            na2 = class_adversary.Adversary(1, adversario_50, adversario_100, adversario_150, sw, sh)
                             na1.x = a.x
                             na2.x = a.x
                             na1.y = a.y
@@ -351,7 +251,7 @@ while run:
                         else:
                             score += 30
                             if isSoundOn:
-                                bangSmallSound.play()
+                                SoundHitS.play()
                         asteroids.pop(asteroids.index(a))
                         playerBullets.pop(playerBullets.index(b))
                         break
@@ -381,14 +281,14 @@ while run:
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT]:
-            player.turnLeft()
+            objPlayer.turnLeft()
         if keys[pygame.K_RIGHT]:
-            player.turnRight()
+            objPlayer.turnRight()
         if keys[pygame.K_UP]:
-            player.moveForward()
+            objPlayer.moveForward()
         if keys[pygame.K_SPACE]:
             if rapidFire:
-                playerBullets.append(Bullet())
+                playerBullets.append(class_ball.Ball(objPlayer))
                 if isSoundOn:
                     shoot.play()
 
@@ -399,7 +299,7 @@ while run:
             if event.key == pygame.K_SPACE:
                 if not gameover:
                     if not rapidFire:
-                        playerBullets.append(Bullet())
+                        playerBullets.append(class_ball.Ball(objPlayer))
                         if isSoundOn:
                             shoot.play()
             if event.key == pygame.K_s:
@@ -407,14 +307,14 @@ while run:
             if event.key == pygame.K_TAB:
                 if gameover:
                     gameover = False
-                    lives = 3
-                    asteroids.clear()
-                    aliens.clear()
-                    alienBullets.clear()
-                    stars.clear()
-                    if score > highScore:
-                        highScore = score
-                    score = 0
+                lives = 3
+                asteroids.clear()
+                aliens.clear()
+                alienBullets.clear()
+                stars.clear()
+                if score > highScore:
+                    highScore = score
+                score = 0
 
     redrawGameWindow()
 pygame.quit()
