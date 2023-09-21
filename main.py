@@ -31,7 +31,7 @@ asteroid150 = pygame.transform.scale(asteroid150, DEFAULT_IMAGE_SIZE_150)
 
 shoot = pygame.mixer.Sound('audio/chute.mp3')
 bangLargeSound = pygame.mixer.Sound('audio/bolaAtinge.mp3')
-bangSmallSound = pygame.mixer.Sound('audio/bolaAtinge.wav')
+bangSmallSound = pygame.mixer.Sound('audio/bolaAtinge.mp3')
 shoot.set_volume(.25)
 bangLargeSound.set_volume(.25)
 bangSmallSound.set_volume(.25)
